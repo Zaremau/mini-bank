@@ -1,10 +1,13 @@
 package com.minibank;
 
+import com.minibank.db.LiquibaseRunner;
+
 import java.math.BigDecimal;
 
 public class Main {
 
     public static void main(String[] args) {
+        LiquibaseRunner.runMigrations();
         BankService bank = new BankService();
 
         Client client = bank.registerClient("Ivan Petrov", "ivan@example.com");

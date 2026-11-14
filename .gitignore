@@ -1,0 +1,19 @@
+# Локальные настройки
+src/main/resources/application.properties
+
+# Maven
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Системные файлы ОС
+.DS_Store
+Thumbs.db
+
+# Логи и временные файлы
+*.log
