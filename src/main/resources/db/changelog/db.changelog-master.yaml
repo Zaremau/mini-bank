@@ -3,4 +3,6 @@ databaseChangeLog:
       file: db/changelog/01-init-schema.sql
   - include:
       file: db/changelog/02-seed-test-data.sql
+  - include:
+     file: db/changelog/03-add-index.sql
 
