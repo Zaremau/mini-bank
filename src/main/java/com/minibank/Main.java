@@ -29,7 +29,7 @@ public class Main {
         System.out.println("=== Перевод на несуществующий счёт (баг) ===");
         BigDecimal balanceBefore = bank.getAccount(account1.getId()).getBalance();
         try {
-            bank.transfer(account1.getId(), 999L, new BigDecimal("50.00"));
+            bank.transfer(account1.getId(), 99999L, new BigDecimal("50.00"));
         } catch (IllegalArgumentException e) {
             System.out.println("Ошибка (как и ожидалось): " + e.getMessage());
         }
