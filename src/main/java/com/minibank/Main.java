@@ -1,13 +1,20 @@
 package com.minibank;
 
+import com.minibank.db.ConnectionManager;
 import com.minibank.db.LiquibaseRunner;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.List;
 
 public class Main {
 
     public static void main(String[] args) {
         LiquibaseRunner.runMigrations();
+        cleanupDemoUser("ivan@example.com");
+
         BankService bank = new BankService();
 
         Client client = bank.registerClient("Ivan Petrov", "ivan@example.com");
@@ -38,4 +45,32 @@ public class Main {
         System.out.println("Баланс после попытки перевода: " + balanceAfter);
         System.out.println("Деньги пропали: " + (balanceAfter.compareTo(balanceBefore) < 0));
     }
+
+    private static void cleanupDemoUser(String email) {
+        String deleteTransactionsSql = """
+            DELETE FROM transactions
+            WHERE account_id IN (
+                SELECT a.id FROM accounts a
+                JOIN clients c ON a.client_id = c.id
+                WHERE c.email = ?
+            )
+            """;
+        String deleteAccountsSql = """
+            DELETE FROM accounts
+            WHERE client_id IN (SELECT id FROM clients WHERE email = ?)
+            """;
+        String deleteClientSql = "DELETE FROM clients WHERE email = ?";
+
+        try (Connection conn = ConnectionManager.getConnection()) {
+            for (String sql : List.of(deleteTransactionsSql, deleteAccountsSql, deleteClientSql)) {
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setString(1, email);
+                    stmt.executeUpdate();
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при очистке демо-данных", e);
+        }
+    }
+
 }
