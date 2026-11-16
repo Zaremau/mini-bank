@@ -46,6 +46,10 @@ public class Main {
         System.out.println("Деньги пропали: " + (balanceAfter.compareTo(balanceBefore) < 0));
     }
 
+    /**
+     * Служебный метод для очистки тестовых данных в базе данных во время перезапуска теста
+     * @param email электронная почта клиента
+     */
     private static void cleanupDemoUser(String email) {
         String deleteTransactionsSql = """
             DELETE FROM transactions
