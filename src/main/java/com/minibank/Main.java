@@ -21,11 +21,7 @@ public class Main {
         Account account1 = bank.openAccount(client.getId(), "ACC-001");
         Account account2 = bank.openAccount(client.getId(), "ACC-002");
 
-        // Пополняем account1 "вручную" переводом с самого себя не получится —
-        // для демо просто задаём баланс напрямую через первый перевод
-        // от несуществующего служебного счёта нет смысла эмулировать,
-        // поэтому просто выставим баланс через пакетный доступ в демо:
-        account1.setBalance(new BigDecimal("1000.00"));
+        bank.deposit(account1.getId(), new BigDecimal("1000.00"));
 
         System.out.println("=== Обычный перевод ===");
         bank.transfer(account1.getId(), account2.getId(), new BigDecimal("100.00"));
@@ -76,5 +72,4 @@ public class Main {
             throw new RuntimeException("Ошибка при очистке демо-данных", e);
         }
     }
-
 }

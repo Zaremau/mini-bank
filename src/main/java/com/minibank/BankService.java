@@ -75,6 +75,12 @@ public class BankService {
             VALUES(?,?,?,?)
             """;
 
+    private static final String UPDATE_ACCOUNT_BALANCE_SQL = """
+        UPDATE accounts
+        SET balance = ?
+        WHERE id = ?
+        """;
+
     public Client registerClient(String name, String email) {
         try (PreparedStatement statement = CONNECTION.prepareStatement(INSERT_CLIENT_SQL, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -165,18 +171,16 @@ public class BankService {
     public void transfer(Long fromAccountId, Long toAccountId, BigDecimal amount) {
         Account from = getAccount(fromAccountId);
 
-        // Списываем деньги ДО того, как проверили существование счёта-
-        // получателя — если toAccountId не существует, деньги уже
-        // списаны и потеряны.
         if (from.getBalance().compareTo(amount) < 0) {
             throw new IllegalStateException("Insufficient funds on account " + fromAccountId);
         }
-        from.setBalance(from.getBalance().subtract(amount));
+
+        updateBalance(fromAccountId, from.getBalance().subtract(amount));
         recordTransaction(fromAccountId, amount.negate(), "TRANSFER_OUT");
 
         Account to = getAccount(toAccountId); // если бросит исключение — деньги уже пропали
-
-        to.setBalance(to.getBalance().add(amount));
+        
+        updateBalance(toAccountId, to.getBalance().add(amount));
         recordTransaction(toAccountId, amount, "TRANSFER_IN");
     }
 
@@ -196,6 +200,30 @@ public class BankService {
                 throw new IllegalArgumentException("Счёт с ID " + accountId + " не найден", e);
             }
             throw new RuntimeException("Ошибка БД при записи транзакции по аккаунту: " + accountId, e);
+        }
+    }
+
+    public void deposit(Long accountId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Сумма пополнения должна быть больше нуля");
+        }
+        Account account = getAccount(accountId);
+        BigDecimal newBalance = account.getBalance().add(amount);
+        updateBalance(accountId, newBalance);
+        recordTransaction(accountId, amount, "TRANSFER_IN");
+    }
+
+    private void updateBalance(Long accountId, BigDecimal newBalance) {
+        try (PreparedStatement statement = CONNECTION.prepareStatement(UPDATE_ACCOUNT_BALANCE_SQL)) {
+            statement.setBigDecimal(1, newBalance);
+            statement.setLong(2, accountId);
+
+            int updated = statement.executeUpdate();
+            if (updated == 0) {
+                throw new IllegalArgumentException("Счёт с ID " + accountId + " не найден");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка БД при обновлении баланса счёта " + accountId, e);
         }
     }
 }
