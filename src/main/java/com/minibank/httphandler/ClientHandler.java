@@ -2,6 +2,7 @@ package com.minibank.httphandler;
 
 import com.minibank.BankService;
 import com.minibank.Client;
+import com.minibank.dto.RegisterClientRequest;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
@@ -15,31 +16,23 @@ public class ClientHandler extends BaseHttpHandler{
     public ClientHandler(BankService bankService) {
         this.bankService = bankService;
         super.registerRoute("POST", "/clients", this::registerClient);
-        super.registerRoute("GET", "clients/{id}", this::getClient);
+        super.registerRoute("GET", "/clients/{id}", this::getClient);
     }
 
     private void registerClient(HttpExchange exchange) throws IOException{
-        Map<String, String> data = JsonUtil.parseFlatJson(super.readBody(exchange));
-        String name = data.get("name");
-        String email = data.get("email");
+        RegisterClientRequest request = JsonUtil.fromJson(super.readBody(exchange), RegisterClientRequest.class);
 
-        if(name == null || email == null){
+        if(request.name() == null || request.email() == null){
             throw  new IllegalArgumentException("Поля name и email обязательны");
         }
 
-        Client client = bankService.registerClient(name, email);
-        super.sendJson(exchange, 200, toJson(client));
+        Client client = bankService.registerClient(request.name(), request.email());
+        super.sendJson(exchange, 201,client);
     }
 
     private void getClient(HttpExchange exchange) throws IOException{
         Long id = super.extractId(exchange);
         Client client = bankService.getClient(id);
-        sendJson(exchange, 200, toJson(client));
-    }
-
-    private String toJson(Client c) {
-        return """
-                {"id": %d, "name": "%s", "email": "%s"}
-                """.formatted(c.getId(), JsonUtil.escape(c.getName()), JsonUtil.escape(c.getEmail())).trim();
+        sendJson(exchange, 200, client);
     }
 }

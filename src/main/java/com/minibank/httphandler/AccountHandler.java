@@ -2,6 +2,8 @@ package com.minibank.httphandler;
 
 import com.minibank.Account;
 import com.minibank.BankService;
+import com.minibank.dto.DepositRequest;
+import com.minibank.dto.OpenAccountRequest;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
@@ -21,39 +23,28 @@ public class AccountHandler extends BaseHttpHandler {
     }
 
     private void openAccount(HttpExchange exchange) throws IOException {
-        Map<String, String> data = JsonUtil.parseFlatJson(super.readBody(exchange));
-        String accountNumber = data.get("accountNumber");
-        Long clientId = Long.parseLong(data.get("clientId"));
+        OpenAccountRequest request = JsonUtil.fromJson(super.readBody(exchange), OpenAccountRequest.class);
 
-        if(accountNumber == null || accountNumber.isBlank()){
+        if(request.accountNumber() == null || request.accountNumber().isBlank()){
             throw new IllegalArgumentException("Поле accountNumber обязательно");
         }
 
-        Account account = bankService.openAccount(clientId, accountNumber);
-        super.sendJson(exchange, 201, toJson(account));
+        Account account = bankService.openAccount(request.clientId(), request.accountNumber());
+        super.sendJson(exchange, 201, account);
     }
 
     private void getAccount(HttpExchange exchange) throws IOException {
-        Map<String, String> data = JsonUtil.parseFlatJson(super.readBody(exchange));
-        Long accountId = Long.parseLong(data.get("accountId"));
-
+        Long accountId = super.extractId(exchange);
         Account account = bankService.getAccount(accountId);
-        super.sendJson(exchange, 200, toJson(account));
+        super.sendJson(exchange, 200, account);
     }
 
     private void deposit(HttpExchange exchange) throws IOException{
-        Map<String, String> data = JsonUtil.parseFlatJson(super.readBody(exchange));
+        Long accountId = super.extractId(exchange);
+        DepositRequest request = JsonUtil.fromJson(super.readBody(exchange), DepositRequest.class);
 
-        Long accountId = Long.parseLong(data.get("accountId"));
-        BigDecimal amount = new BigDecimal(data.get("amount"));
-
-        bankService.deposit(accountId, amount);
+        bankService.deposit(accountId, request.amount());
         Account updatedAccount = bankService.getAccount(accountId);
-        super.sendJson(exchange, 200, toJson(updatedAccount));
-    }
-    private String toJson(Account a) {
-        return """
-                {"id": %d, "clientId": %d, "accountNumber": "%s", "balance": %s}
-                """.formatted(a.getId(), a.getClientId(), JsonUtil.escape(a.getAccountNumber()), a.getBalance()).trim();
+        super.sendJson(exchange, 200, updatedAccount);
     }
 }

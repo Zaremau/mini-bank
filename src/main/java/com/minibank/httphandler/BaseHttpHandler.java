@@ -1,5 +1,6 @@
 package com.minibank.httphandler;
 
+import com.minibank.dto.ErrorResponse;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -34,16 +35,16 @@ public abstract class BaseHttpHandler implements HttpHandler {
             if(handler != null){
                 handler.handle(exchange);
             }else {
-                sendJson(exchange, 404, "{\"error\": \"Endpoint not found\"}");
+                sendJson(exchange, 404, new ErrorResponse("Endpoint not found"));
             }
-        } catch (NumberFormatException | NullPointerException e){
-            sendJson(exchange, 400, "{\"error\": \"Invalid request parameters or number format\"}");
-        } catch (IllegalArgumentException e){
-            sendJson(exchange, 400, "{\"error\": \"" + JsonUtil.escape(e.getMessage()) + "\"}");
+        }catch (NumberFormatException e){
+            sendJson(exchange, 400,new ErrorResponse("Неправильный формат числа: "+ e.getMessage()));
+        }catch (IllegalArgumentException e){
+            sendJson(exchange, 400, new ErrorResponse(e.getMessage()));
         }catch (IllegalStateException e){
-            sendJson(exchange, 409, "{\"error\": \"" + JsonUtil.escape(e.getMessage()) + "\"}");
+            sendJson(exchange, 409, new ErrorResponse(e.getMessage()));
         }catch (Exception e) {
-            sendJson(exchange, 500, "{\"error\": \"Internal server error: " + JsonUtil.escape(e.getMessage()) + "\"}");
+            sendJson(exchange, 500, new ErrorResponse("Internal server error"));
         }
     }
 
@@ -62,8 +63,8 @@ public abstract class BaseHttpHandler implements HttpHandler {
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
-    protected void sendJson(HttpExchange exchange, int statusCode, String json) throws IOException {
-        byte [] bytes = json.getBytes(StandardCharsets.UTF_8);
+    protected void sendJson(HttpExchange exchange, int statusCode, Object body) throws IOException {
+        byte [] bytes = JsonUtil.toJson(body).getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
         exchange.sendResponseHeaders(statusCode, bytes.length);
         try(OutputStream os = exchange.getResponseBody()){

@@ -171,6 +171,9 @@ public class BankService {
     public void transfer(Long fromAccountId, Long toAccountId, BigDecimal amount) {
         Account from = getAccount(fromAccountId);
 
+        if(amount == null ||amount.compareTo(BigDecimal.ZERO) <= 0){
+            throw new IllegalArgumentException("Transfer amount should be positive");
+        }
         if (from.getBalance().compareTo(amount) < 0) {
             throw new IllegalStateException("Insufficient funds on account " + fromAccountId);
         }

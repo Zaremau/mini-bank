@@ -1,31 +1,26 @@
 package com.minibank.httphandler;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class JsonUtil {
+import java.io.IOException;
 
-    private static final Pattern JSON_PAIR_PATTERN =
-            Pattern.compile("\"([^\"]+)\"\\s*:\\s*(?:\"([^\"]*)\"|([^,\\s}]+))");
+public final class JsonUtil {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public static Map<String, String> parseFlatJson(String json) {
-        Map<String, String> result = new HashMap<>();
-        if (json == null || json.isBlank()) {
-            return result;
+    public static String toJson(Object object){
+        try{
+            return MAPPER.writeValueAsString(object);
+        }catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
-        Matcher matcher = JSON_PAIR_PATTERN.matcher(json);
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String value = matcher.group(2) != null ? matcher.group(2) : matcher.group(3);
-            result.put(key, value);
-        }
-        return result;
     }
 
-    public static String escape(String text) {
-        if (text == null) return "";
-        return text.replace("\\", "\\\\").replace("\"", "\\\"");
+    public static <T> T fromJson(String s, Class<T> clazz){
+        try{
+            return MAPPER.readValue(s, clazz);
+        }catch (IOException e){
+            throw new IllegalArgumentException("Невалидный JSON: " + e.getMessage());
+        }
     }
 }
