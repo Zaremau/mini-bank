@@ -1,14 +1,13 @@
 package com.minibank.httphandler;
 
-import com.minibank.Account;
-import com.minibank.BankService;
+import com.minibank.model.Account;
+import com.minibank.service.BankService;
 import com.minibank.dto.DepositRequest;
 import com.minibank.dto.OpenAccountRequest;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.Map;
 
 public class AccountHandler extends BaseHttpHandler {
 
@@ -25,8 +24,9 @@ public class AccountHandler extends BaseHttpHandler {
     private void openAccount(HttpExchange exchange) throws IOException {
         OpenAccountRequest request = JsonUtil.fromJson(super.readBody(exchange), OpenAccountRequest.class);
 
-        if(request.accountNumber() == null || request.accountNumber().isBlank()){
-            throw new IllegalArgumentException("Поле accountNumber обязательно");
+        if(request.accountNumber() == null || request.accountNumber().isBlank()
+                || request.clientId() == null){
+            throw new IllegalArgumentException("Поля accountNumber и clientId обязательны");
         }
 
         Account account = bankService.openAccount(request.clientId(), request.accountNumber());
@@ -42,6 +42,13 @@ public class AccountHandler extends BaseHttpHandler {
     private void deposit(HttpExchange exchange) throws IOException{
         Long accountId = super.extractId(exchange);
         DepositRequest request = JsonUtil.fromJson(super.readBody(exchange), DepositRequest.class);
+
+        if (request.amount() == null) {
+            throw new IllegalArgumentException("Поле amount обязательно");
+        }
+        if (request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Сумма должна быть положительной");
+        }
 
         bankService.deposit(accountId, request.amount());
         Account updatedAccount = bankService.getAccount(accountId);

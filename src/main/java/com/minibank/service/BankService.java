@@ -1,11 +1,11 @@
-package com.minibank;
+package com.minibank.service;
 
 import com.minibank.db.ConnectionManager;
-import liquibase.Liquibase;
-import liquibase.database.Database;
-import liquibase.database.DatabaseFactory;
-import liquibase.database.jvm.JdbcConnection;
-import liquibase.resource.ClassLoaderResourceAccessor;
+import com.minibank.exception.AccountNotFoundException;
+import com.minibank.exception.ClientNotFoundException;
+import com.minibank.exception.InsufficientFundsException;
+import com.minibank.model.Account;
+import com.minibank.model.Client;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -15,9 +15,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * MiniBank — "MVP", который наспех собрал предыдущий разработчик:
@@ -97,8 +94,9 @@ public class BankService {
                 }
             }
         } catch (SQLException e) {
+            e.printStackTrace();
             if ("23505".equals(e.getSQLState())) {
-                throw new IllegalArgumentException("Клиент с email " + email + " уже существует", e);
+                throw new IllegalStateException("Клиент с email " + email + " уже существует", e);
             }
 
             throw new RuntimeException("Ошибка при регистрации клиента", e);
@@ -121,8 +119,9 @@ public class BankService {
                 }
             }
         } catch (SQLException e) {
+            e.printStackTrace();
             if ("23503".equals(e.getSQLState())) {
-                throw new IllegalArgumentException("Клиент с id=" + clientId + " не найден", e);
+                throw new ClientNotFoundException("Клиент с id=" + clientId + " не найден", e);
             }
             throw new RuntimeException("Ошибка при открытии счёта", e);
         }
@@ -140,10 +139,11 @@ public class BankService {
 
                     return new Account(accountId, clientId, accountNumber, balance);
                 } else {
-                    throw new IllegalArgumentException("Не удалось найти счёт: ID не найден." + accountId);
+                    throw new AccountNotFoundException("Не удалось найти счёт: ID не найден." + accountId);
                 }
             }
         } catch (SQLException e) {
+            e.printStackTrace();
             throw new RuntimeException("Ошибка БД при поиске счёта с ID " + accountId, e);
         }
     }
@@ -159,11 +159,12 @@ public class BankService {
 
                     return new Client(clientId, name, email);
                 } else {
-                    throw new IllegalArgumentException("Не удалось найти клиента: ID не найдет " + clientId);
+                    throw new ClientNotFoundException("Не удалось найти клиента: ID не найден " + clientId);
                 }
             }
 
         } catch (SQLException e) {
+            e.printStackTrace();
             throw new RuntimeException("Ошибка БД при поиске клиента с ID " + clientId, e);
         }
     }
@@ -175,7 +176,9 @@ public class BankService {
             throw new IllegalArgumentException("Transfer amount should be positive");
         }
         if (from.getBalance().compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient funds on account " + fromAccountId);
+            throw new InsufficientFundsException(
+                    "Недостаточно средств на счёте " + fromAccountId +
+                    ": баланс " + from.getBalance() + ", требуется " + amount);
         }
 
         updateBalance(fromAccountId, from.getBalance().subtract(amount));
@@ -199,8 +202,9 @@ public class BankService {
                 throw new RuntimeException("Не удалось записать транзакцию по аккаунту: " + accountId);
             }
         } catch (SQLException e) {
+            e.printStackTrace();
             if ("23503".equals(e.getSQLState())) {
-                throw new IllegalArgumentException("Счёт с ID " + accountId + " не найден", e);
+                throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден", e);
             }
             throw new RuntimeException("Ошибка БД при записи транзакции по аккаунту: " + accountId, e);
         }
@@ -223,9 +227,10 @@ public class BankService {
 
             int updated = statement.executeUpdate();
             if (updated == 0) {
-                throw new IllegalArgumentException("Счёт с ID " + accountId + " не найден");
+                throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден");
             }
         } catch (SQLException e) {
+            e.printStackTrace();
             throw new RuntimeException("Ошибка БД при обновлении баланса счёта " + accountId, e);
         }
     }

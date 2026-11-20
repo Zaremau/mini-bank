@@ -1,6 +1,6 @@
 package com.minibank.httphandler;
 
-import com.minibank.BankService;
+import com.minibank.service.BankService;
 import com.minibank.dto.TransferRequest;
 import com.sun.net.httpserver.HttpExchange;
 
@@ -24,8 +24,14 @@ public class TransferHandler extends BaseHttpHandler {
         Long toAccountId = request.toAccountId();
         BigDecimal amount = request.amount();
 
-        if(fromAccountId == null || toAccountId == null || amount == null){
+        if (fromAccountId == null || toAccountId == null || amount == null) {
             throw new IllegalArgumentException("Поля fromAccountId, toAccountId и amount обязательны");
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Сумма должна быть положительной");
+        }
+        if (fromAccountId.equals(toAccountId)) {
+            throw new IllegalArgumentException("Нельзя переводить на тот же счёт");
         }
 
         bankService.transfer(fromAccountId, toAccountId, amount);

@@ -4,6 +4,7 @@ import com.minibank.db.LiquibaseRunner;
 import com.minibank.httphandler.AccountHandler;
 import com.minibank.httphandler.ClientHandler;
 import com.minibank.httphandler.TransferHandler;
+import com.minibank.service.BankService;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;

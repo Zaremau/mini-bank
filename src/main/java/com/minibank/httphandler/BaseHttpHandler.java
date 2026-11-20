@@ -1,6 +1,9 @@
 package com.minibank.httphandler;
 
-import com.minibank.dto.ErrorResponse;
+import com.minibank.exception.AccountNotFoundException;
+import com.minibank.exception.ClientNotFoundException;
+import com.minibank.exception.ErrorResponse;
+import com.minibank.exception.InsufficientFundsException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -37,13 +40,14 @@ public abstract class BaseHttpHandler implements HttpHandler {
             }else {
                 sendJson(exchange, 404, new ErrorResponse("Endpoint not found"));
             }
-        }catch (NumberFormatException e){
-            sendJson(exchange, 400,new ErrorResponse("Неправильный формат числа: "+ e.getMessage()));
-        }catch (IllegalArgumentException e){
-            sendJson(exchange, 400, new ErrorResponse(e.getMessage()));
-        }catch (IllegalStateException e){
+        }catch (AccountNotFoundException | ClientNotFoundException e) {
+            sendJson(exchange, 404, new ErrorResponse(e.getMessage()));
+        } catch (InsufficientFundsException | IllegalStateException e) {
             sendJson(exchange, 409, new ErrorResponse(e.getMessage()));
-        }catch (Exception e) {
+        } catch (IllegalArgumentException e) {
+            sendJson(exchange, 400, new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
             sendJson(exchange, 500, new ErrorResponse("Internal server error"));
         }
     }
