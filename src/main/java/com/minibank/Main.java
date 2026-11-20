@@ -2,6 +2,9 @@ package com.minibank;
 
 import com.minibank.db.ConnectionManager;
 import com.minibank.db.LiquibaseRunner;
+import com.minibank.model.Account;
+import com.minibank.model.Client;
+import com.minibank.service.BankService;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
