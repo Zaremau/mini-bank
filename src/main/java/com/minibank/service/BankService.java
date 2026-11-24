@@ -37,46 +37,7 @@ import java.time.LocalDateTime;
  * раз тот инструмент, который проблему полностью закрывает.
  */
 public class BankService {
-    private static final Connection CONNECTION;
 
-    static {
-        try {
-            CONNECTION = ConnectionManager.getConnection();
-        } catch (SQLException e) {
-            throw new RuntimeException("Не удалось установить соединение с базой данных", e);
-        }
-    }
-
-    private static final String INSERT_CLIENT_SQL = """
-            INSERT INTO clients (name, email)
-            VALUES (?, ?)
-            """;
-    private static final String INSERT_ACCOUNT_SQL = """
-            INSERT INTO accounts (client_id, account_number, balance)
-            VALUES(?,?,?)
-            """;
-
-    private static final String FIND_ACCOUNT_BY_ID = """
-            SELECT id, client_id, account_number, balance
-            FROM accounts
-            WHERE id = ?
-            """;
-
-    private static final String FIND_CLIENT_BY_ID = """
-            SELECT id, name, email
-            FROM clients
-            WHERE id = ?
-            """;
-    private static final String INSERT_TRANSACTION = """
-            INSERT INTO transactions (account_id, amount, type, transaction_date)
-            VALUES(?,?,?,?)
-            """;
-
-    private static final String UPDATE_ACCOUNT_BALANCE_SQL = """
-        UPDATE accounts
-        SET balance = ?
-        WHERE id = ?
-        """;
 
     public Client registerClient(String name, String email) {
         try (PreparedStatement statement = CONNECTION.prepareStatement(INSERT_CLIENT_SQL, Statement.RETURN_GENERATED_KEYS)) {
