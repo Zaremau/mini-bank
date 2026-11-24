@@ -7,6 +7,7 @@ import com.minibank.dto.RegisterClientRequest;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.regex.Pattern;
 
 public class ClientHandler extends BaseHttpHandler{
@@ -19,6 +20,7 @@ public class ClientHandler extends BaseHttpHandler{
         this.bankService = bankService;
         super.registerRoute("POST", "/clients", this::registerClient);
         super.registerRoute("GET", "/clients/{id}", this::getClient);
+        super.registerRoute("GET", "/clients", this::getAllClients);
     }
 
     private void registerClient(HttpExchange exchange) throws IOException{
@@ -40,5 +42,12 @@ public class ClientHandler extends BaseHttpHandler{
         Long id = super.extractId(exchange);
         Client client = bankService.getClient(id);
         sendJson(exchange, 200, ClientResponse.from(client));
+    }
+
+    private void getAllClients(HttpExchange exchange) throws IOException {
+        List<ClientResponse> response = bankService.getAllClients().stream()
+                .map(ClientResponse::from)
+                .toList();
+        sendJson(exchange, 200, response);
     }
 }

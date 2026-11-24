@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * MiniBank — "MVP", который наспех собрал предыдущий разработчик:
@@ -195,6 +196,14 @@ public class BankService {
                 if (tx.isActive()) tx.rollback();
                 throw new RuntimeException("Ошибка БД при обновлении баланса счёта " + accountId, e);
             }
+        }
+    }
+
+    public List<Client> getAllClients() {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            return em.createQuery("SELECT c FROM Client c ORDER BY c.id", Client.class)
+                    .setMaxResults(5)
+                    .getResultList();
         }
     }
 }
