@@ -1,5 +1,6 @@
 package com.minibank.httphandler;
 
+import com.minibank.dto.ClientResponse;
 import com.minibank.service.BankService;
 import com.minibank.model.Client;
 import com.minibank.dto.RegisterClientRequest;
@@ -32,12 +33,12 @@ public class ClientHandler extends BaseHttpHandler{
         }
 
         Client client = bankService.registerClient(request.name(), request.email());
-        super.sendJson(exchange, 201,client);
+        super.sendJson(exchange, 201, ClientResponse.from(client));
     }
 
     private void getClient(HttpExchange exchange) throws IOException{
         Long id = super.extractId(exchange);
         Client client = bankService.getClient(id);
-        sendJson(exchange, 200, client);
+        sendJson(exchange, 200, ClientResponse.from(client));
     }
 }
