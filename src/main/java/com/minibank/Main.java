@@ -20,7 +20,7 @@ public class Main {
 
         BankService bank = new BankService();
 
-        Client client = bank.registerClient("Ivan Petrov", "ivan@example.com");
+       /* Client client = bank.registerClient("Ivan Petrov", "ivan@example.com");
         Account account1 = bank.openAccount(client.getId(), "ACC-001");
         Account account2 = bank.openAccount(client.getId(), "ACC-002");
 
@@ -43,7 +43,9 @@ public class Main {
         System.out.println("Баланс до попытки перевода: " + balanceBefore);
         System.out.println("Баланс после попытки перевода: " + balanceAfter);
         System.out.println("Деньги пропали: " + (balanceAfter.compareTo(balanceBefore) < 0));
+        */
     }
+
 
     /**
      * Служебный метод для очистки тестовых данных в базе данных во время перезапуска теста

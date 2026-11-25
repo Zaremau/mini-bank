@@ -60,12 +60,13 @@ public class Client {
     public boolean equals(Object object) {
         if (this == object) return true;
         if (!(object instanceof Client client)) return false;
+        if (email == null || client.email == null) return false;
         return Objects.equals(email, client.getEmail());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(email);
+        return email == null ? 0 : email.hashCode();
     }
 }
 

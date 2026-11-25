@@ -88,7 +88,7 @@ public class BankService {
                 if (tx.isActive()) tx.rollback();
                 if (e instanceof ConstraintViolationException ||
                         e.getCause() instanceof ConstraintViolationException) {
-                    throw new IllegalStateException("Аккаунт с номером" + accountNumber + " уже существует", e);
+                    throw new IllegalStateException("Аккаунт с номером " + accountNumber + " уже существует", e);
                 }
                 throw new RuntimeException("Ошибка при регистрации аккаунта", e);
             }
@@ -147,6 +147,7 @@ public class BankService {
         }
     }
 
+    // TODO: пока не атомарно
     public void transfer(Long fromAccountId, Long toAccountId, BigDecimal amount) {
         Account from = getAccount(fromAccountId);
 
@@ -236,7 +237,6 @@ public class BankService {
     public List<ClientResponse> getAllClients() {
         try (EntityManager em = JpaUtil.getEntityManager()) {
             return em.createQuery("SELECT c FROM Client c ORDER BY c.id", Client.class)
-                    .setMaxResults(5)
                     .getResultList()
                     .stream()
                     .map(ClientResponse::from).toList();

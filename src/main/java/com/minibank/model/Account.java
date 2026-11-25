@@ -65,12 +65,13 @@ public class Account {
     public boolean equals(Object object) {
         if (this == object) return true;
         if (!(object instanceof Account account)) return false;
+        if (accountNumber == null || account.accountNumber == null) return false;
         return Objects.equals(accountNumber, account.getAccountNumber());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(accountNumber);
+        return accountNumber == null ? 0 : accountNumber.hashCode();
     }
 }
 
