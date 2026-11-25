@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Table(name = "clients")
@@ -53,6 +54,18 @@ public class Client {
 
     public List<Account> getAccounts() {
         return accounts;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (!(object instanceof Client client)) return false;
+        return Objects.equals(email, client.getEmail());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(email);
     }
 }
 

@@ -1,6 +1,7 @@
 package com.minibank.httphandler;
 
 import com.minibank.dto.ClientResponse;
+import com.minibank.dto.ClientWithAccountsResponse;
 import com.minibank.service.BankService;
 import com.minibank.model.Client;
 import com.minibank.dto.RegisterClientRequest;
@@ -21,6 +22,9 @@ public class ClientHandler extends BaseHttpHandler{
         super.registerRoute("POST", "/clients", this::registerClient);
         super.registerRoute("GET", "/clients/{id}", this::getClient);
         super.registerRoute("GET", "/clients", this::getAllClients);
+        super.registerRoute("GET", "/clients/{id}/details", this::getClientWithAccounts);
+        super.registerRoute("GET", "/clients/details", this::getAllClientsWithAccounts);
+        super.registerRoute("DELETE", "/clients/{id}/accounts/{id}", this::removeAccountFromClient);
     }
 
     private void registerClient(HttpExchange exchange) throws IOException{
@@ -34,20 +38,44 @@ public class ClientHandler extends BaseHttpHandler{
             throw new IllegalArgumentException("Некорректный формат email");
         }
 
-        Client client = bankService.registerClient(request.name(), request.email());
-        super.sendJson(exchange, 201, ClientResponse.from(client));
+        ClientResponse  client = bankService.registerClient(request.name(), request.email());
+        super.sendJson(exchange, 201, client);
     }
 
     private void getClient(HttpExchange exchange) throws IOException{
         Long id = super.extractId(exchange);
-        Client client = bankService.getClient(id);
-        sendJson(exchange, 200, ClientResponse.from(client));
+        ClientResponse client = bankService.getClient(id);
+        sendJson(exchange, 200, client);
+    }
+    private void getClientWithAccounts(HttpExchange exchange) throws IOException{
+        Long id = super.extractId(exchange);
+        ClientWithAccountsResponse client = bankService.getClientWithAccounts(id);
+        sendJson(exchange, 200, client);
     }
 
+
     private void getAllClients(HttpExchange exchange) throws IOException {
-        List<ClientResponse> response = bankService.getAllClients().stream()
-                .map(ClientResponse::from)
-                .toList();
+        List<ClientResponse> response = bankService.getAllClients();
         sendJson(exchange, 200, response);
     }
+
+    private void getAllClientsWithAccounts(HttpExchange exchange) throws IOException {
+        List<ClientWithAccountsResponse> response = bankService.getAllClientsWithAccounts();
+        sendJson(exchange, 200, response);
+    }
+
+    private void removeAccountFromClient(HttpExchange exchange) throws IOException {
+        List<Long> ids = super.extractIds(exchange);
+        if (ids.size() < 2) {
+            throw new IllegalArgumentException("В URL должны быть указаны ID клиента и ID счета");
+        }
+        Long clientId = ids.get(0);
+        Long accountId = ids.get(1);
+
+        bankService.removeAccountFromClient(clientId, accountId);
+
+        exchange.sendResponseHeaders(204, -1);
+        exchange.close();
+    }
+
 }

@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Entity
 @Table(name = "accounts")
@@ -20,11 +21,11 @@ public class Account {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne()
     @JoinColumn(name = "client_id", nullable = false)
     private Client client;
 
-    @Column(name = "account_number", nullable = false, length = 34)
+    @Column(name = "account_number", nullable = false, unique = true, length = 34)
     private String accountNumber;
 
     @Column(name = "balance", nullable = false, precision = 19, scale = 4)
@@ -58,6 +59,18 @@ public class Account {
 
     public void setBalance(BigDecimal balance) {
         this.balance = balance;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (!(object instanceof Account account)) return false;
+        return Objects.equals(accountNumber, account.getAccountNumber());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(accountNumber);
     }
 }
 

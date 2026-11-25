@@ -29,8 +29,8 @@ public class AccountHandler extends BaseHttpHandler {
             throw new IllegalArgumentException("Поля accountNumber и clientId обязательны");
         }
 
-        Account account = bankService.openAccount(request.clientId(), request.accountNumber());
-        sendJson(exchange, 201, AccountResponse.from(account));
+        AccountResponse account = bankService.openAccount(request.clientId(), request.accountNumber());
+        sendJson(exchange, 201,account);
     }
 
     private void getAccount(HttpExchange exchange) throws IOException {

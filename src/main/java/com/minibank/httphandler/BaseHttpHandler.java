@@ -11,7 +11,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public abstract class BaseHttpHandler implements HttpHandler {
@@ -61,6 +63,18 @@ public abstract class BaseHttpHandler implements HttpHandler {
         }
         throw new IllegalArgumentException("ID в URL не найден");
     }
+
+    protected List<Long> extractIds(HttpExchange exchange) {
+        String[] parts = exchange.getRequestURI().getPath().split("/");
+        List<Long> ids = new ArrayList<>();
+        for (String part : parts) {
+            if (part.matches("\\d+")) {
+                ids.add(Long.parseLong(part));
+            }
+        }
+        return ids;
+    }
+
 
     protected String readBody(HttpExchange exchange) throws IOException{
         try (InputStream is = exchange.getRequestBody()){

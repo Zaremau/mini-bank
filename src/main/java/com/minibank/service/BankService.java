@@ -2,6 +2,9 @@ package com.minibank.service;
 
 import com.minibank.db.ConnectionManager;
 import com.minibank.db.JpaUtil;
+import com.minibank.dto.AccountResponse;
+import com.minibank.dto.ClientResponse;
+import com.minibank.dto.ClientWithAccountsResponse;
 import com.minibank.exception.AccountNotFoundException;
 import com.minibank.exception.ClientNotFoundException;
 import com.minibank.exception.InsufficientFundsException;
@@ -45,7 +48,7 @@ import java.util.List;
 public class BankService {
 
 
-    public Client registerClient(String name, String email) {
+    public ClientResponse registerClient(String name, String email) {
         try (EntityManager em = JpaUtil.getEntityManager()) {
             EntityTransaction tx = em.getTransaction();
             try {
@@ -53,7 +56,7 @@ public class BankService {
                 Client client = new Client(null, name, email);
                 em.persist(client);
                 tx.commit();
-                return client;
+                return ClientResponse.from(client);
             } catch (Exception e) {
                 if (tx.isActive()) tx.rollback();
                 if (e instanceof ConstraintViolationException ||
@@ -65,7 +68,7 @@ public class BankService {
         }
     }
 
-    public Account openAccount(Long clientId, String accountNumber) {
+    public AccountResponse openAccount(Long clientId, String accountNumber) {
         try (EntityManager em = JpaUtil.getEntityManager()) {
             EntityTransaction tx = em.getTransaction();
             try {
@@ -77,7 +80,7 @@ public class BankService {
                 Account account = new Account(null, client, accountNumber, BigDecimal.ZERO);
                 em.persist(account);
                 tx.commit();
-                return account;
+                return AccountResponse.from(account);
             } catch (ClientNotFoundException e) {
                 if (tx.isActive()) tx.rollback();
                 throw e;
@@ -94,22 +97,53 @@ public class BankService {
 
     public Account getAccount(Long accountId) {
         try (EntityManager em = JpaUtil.getEntityManager()) {
-            Account account = em.find(Account.class, accountId);
-            if (account == null) {
-                throw new AccountNotFoundException("Не удалось найти счёт: ID не найден " + accountId);
-            }
-            return account;
+            return em.createQuery(
+                            "select a from Account a join fetch a.client where a.id = :id",
+                            Account.class
+                    )
+                    .setParameter("id", accountId)
+                    .getResultStream()
+                    .findFirst()
+                    .orElseThrow(() -> new AccountNotFoundException("Не удалось найти счёт: ID не найден " + accountId));
         }
     }
 
 
-    public Client getClient(Long clientId) {
+    public ClientResponse getClient(Long clientId) {
         try (EntityManager em = JpaUtil.getEntityManager()) {
             Client client = em.find(Client.class, clientId);
             if (client == null) {
                 throw new ClientNotFoundException("Клиент с id=" + clientId + " не найден");
             }
-            return client;
+            return ClientResponse.from(client);
+        }
+    }
+
+    public ClientWithAccountsResponse getClientWithAccounts(Long id) {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            Client client = em.createQuery(
+                            "select c from Client c left join fetch c.accounts where c.id = :id",
+                            Client.class
+                    )
+                    .setParameter("id", id)
+                    .getResultStream()
+                    .findFirst()
+                    .orElseThrow(() -> new ClientNotFoundException("Клиент не найден"));
+
+            List<AccountResponse> accountDtos = client.getAccounts().stream()
+                    .map(account ->
+                            new AccountResponse(
+                                    account.getId(),
+                                    account.getClient().getId(),
+                                    account.getAccountNumber(),
+                                    account.getBalance()))
+                    .toList();
+
+            return new ClientWithAccountsResponse(
+                    client.getId(),
+                    client.getName(),
+                    accountDtos
+            );
         }
     }
 
@@ -199,11 +233,58 @@ public class BankService {
         }
     }
 
-    public List<Client> getAllClients() {
+    public List<ClientResponse> getAllClients() {
         try (EntityManager em = JpaUtil.getEntityManager()) {
             return em.createQuery("SELECT c FROM Client c ORDER BY c.id", Client.class)
                     .setMaxResults(5)
+                    .getResultList()
+                    .stream()
+                    .map(ClientResponse::from).toList();
+        }
+    }
+
+    public List<ClientWithAccountsResponse> getAllClientsWithAccounts(){
+        try(EntityManager em = JpaUtil.getEntityManager()){
+            List<Client> clients = em.createQuery(
+                    "select distinct c from Client c left join fetch c.accounts",
+                    Client.class)
                     .getResultList();
+
+            return clients.stream()
+                    .map(ClientWithAccountsResponse::from).toList();
+        }
+    }
+
+    public void removeAccountFromClient(Long clientId, Long accountId) {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
+
+                Client client = em.createQuery(
+                                "select c from Client c left join fetch c.accounts where c.id = :id",
+                                Client.class
+                        )
+                        .setParameter("id", clientId)
+                        .getResultStream()
+                        .findFirst()
+                        .orElseThrow(() -> new ClientNotFoundException("Client not found"));
+
+                boolean removed = client.getAccounts()
+                        .removeIf(account -> account.getId().equals(accountId));
+
+                if (!removed) {
+                    throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден");
+                }
+
+                tx.commit();
+            } catch (AccountNotFoundException | ClientNotFoundException e) {
+                if (tx.isActive()) tx.rollback();
+                throw e;
+            } catch (Exception e) {
+                if (tx.isActive()) tx.rollback();
+                throw new RuntimeException("Ошибка БД при удалении аккаунта " + accountId, e);
+            }
         }
     }
 }
