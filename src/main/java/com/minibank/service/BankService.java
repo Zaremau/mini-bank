@@ -1,6 +1,5 @@
 package com.minibank.service;
 
-import com.minibank.db.ConnectionManager;
 import com.minibank.db.JpaUtil;
 import com.minibank.dto.AccountResponse;
 import com.minibank.dto.ClientResponse;
@@ -16,12 +15,6 @@ import jakarta.persistence.EntityTransaction;
 import org.hibernate.exception.ConstraintViolationException;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 

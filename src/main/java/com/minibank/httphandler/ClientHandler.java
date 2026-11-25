@@ -3,7 +3,6 @@ package com.minibank.httphandler;
 import com.minibank.dto.ClientResponse;
 import com.minibank.dto.ClientWithAccountsResponse;
 import com.minibank.service.BankService;
-import com.minibank.model.Client;
 import com.minibank.dto.RegisterClientRequest;
 import com.sun.net.httpserver.HttpExchange;
 
