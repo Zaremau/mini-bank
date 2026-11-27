@@ -1,0 +1,4 @@
+db.url=jdbc:postgresql://localhost:5432/minibank
+db.user=postgres
+db.password=YOUR_PASSWORD_HERE
+liquibase.changelog=db/changelog/db.changelog-master.yaml
