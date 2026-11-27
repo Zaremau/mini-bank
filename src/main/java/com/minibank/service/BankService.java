@@ -170,57 +170,5 @@ public class BankService {
         }
     }
 
-    public List<ClientResponse> getAllClients() {
-        try (EntityManager em = JpaUtil.getEntityManager()) {
-            return em.createQuery("SELECT c FROM Client c ORDER BY c.id", Client.class)
-                    .getResultList()
-                    .stream()
-                    .map(ClientResponse::from).toList();
-        }
-    }
 
-    public List<ClientWithAccountsResponse> getAllClientsWithAccounts(){
-        try(EntityManager em = JpaUtil.getEntityManager()){
-            List<Client> clients = em.createQuery(
-                    "select distinct c from Client c left join fetch c.accounts",
-                    Client.class)
-                    .getResultList();
-
-            return clients.stream()
-                    .map(ClientWithAccountsResponse::from).toList();
-        }
-    }
-
-    public void removeAccountFromClient(Long clientId, Long accountId) {
-        try (EntityManager em = JpaUtil.getEntityManager()) {
-            EntityTransaction tx = em.getTransaction();
-            try {
-                tx.begin();
-
-                Client client = em.createQuery(
-                                "select c from Client c left join fetch c.accounts where c.id = :id",
-                                Client.class
-                        )
-                        .setParameter("id", clientId)
-                        .getResultStream()
-                        .findFirst()
-                        .orElseThrow(() -> new ClientNotFoundException("Client not found"));
-
-                boolean removed = client.getAccounts()
-                        .removeIf(account -> account.getId().equals(accountId));
-
-                if (!removed) {
-                    throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден");
-                }
-
-                tx.commit();
-            } catch (AccountNotFoundException | ClientNotFoundException e) {
-                if (tx.isActive()) tx.rollback();
-                throw e;
-            } catch (Exception e) {
-                if (tx.isActive()) tx.rollback();
-                throw new RuntimeException("Ошибка БД при удалении аккаунта " + accountId, e);
-            }
-        }
-    }
 }
