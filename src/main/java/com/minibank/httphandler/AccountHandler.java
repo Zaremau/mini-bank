@@ -1,9 +1,10 @@
 package com.minibank.httphandler;
 
-import com.minibank.model.Account;
-import com.minibank.service.BankService;
+import com.minibank.dto.AccountResponse;
 import com.minibank.dto.DepositRequest;
 import com.minibank.dto.OpenAccountRequest;
+import com.minibank.model.Account;
+import com.minibank.service.BankService;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
@@ -13,35 +14,34 @@ public class AccountHandler extends BaseHttpHandler {
 
     private final BankService bankService;
 
-
     public AccountHandler(BankService bankService) {
         this.bankService = bankService;
-        super.registerRoute("POST", "/accounts", this::openAccount);
-        super.registerRoute("GET", "/accounts/{id}", this::getAccount);
-        super.registerRoute("POST", "/accounts/{id}/deposit", this::deposit);
+        registerRoute("POST", "/accounts", this::openAccount);
+        registerRoute("GET", "/accounts/{id}", this::getAccount);
+        registerRoute("POST", "/accounts/{id}/deposit", this::deposit);
     }
 
     private void openAccount(HttpExchange exchange) throws IOException {
-        OpenAccountRequest request = JsonUtil.fromJson(super.readBody(exchange), OpenAccountRequest.class);
+        OpenAccountRequest request = JsonUtil.fromJson(readBody(exchange), OpenAccountRequest.class);
 
-        if(request.accountNumber() == null || request.accountNumber().isBlank()
-                || request.clientId() == null){
+        if (request.accountNumber() == null || request.accountNumber().isBlank()
+                || request.clientId() == null) {
             throw new IllegalArgumentException("Поля accountNumber и clientId обязательны");
         }
 
-        Account account = bankService.openAccount(request.clientId(), request.accountNumber());
-        super.sendJson(exchange, 201, account);
+        AccountResponse account = bankService.openAccount(request.clientId(), request.accountNumber());
+        sendJson(exchange, 201,account);
     }
 
     private void getAccount(HttpExchange exchange) throws IOException {
-        Long accountId = super.extractId(exchange);
+        Long accountId = extractId(exchange);
         Account account = bankService.getAccount(accountId);
-        super.sendJson(exchange, 200, account);
+        sendJson(exchange, 200, AccountResponse.from(account));
     }
 
-    private void deposit(HttpExchange exchange) throws IOException{
-        Long accountId = super.extractId(exchange);
-        DepositRequest request = JsonUtil.fromJson(super.readBody(exchange), DepositRequest.class);
+    private void deposit(HttpExchange exchange) throws IOException {
+        Long accountId = extractId(exchange);
+        DepositRequest request = JsonUtil.fromJson(readBody(exchange), DepositRequest.class);
 
         if (request.amount() == null) {
             throw new IllegalArgumentException("Поле amount обязательно");
@@ -52,6 +52,7 @@ public class AccountHandler extends BaseHttpHandler {
 
         bankService.deposit(accountId, request.amount());
         Account updatedAccount = bankService.getAccount(accountId);
-        super.sendJson(exchange, 200, updatedAccount);
+        sendJson(exchange, 200, AccountResponse.from(updatedAccount));
     }
 }
+

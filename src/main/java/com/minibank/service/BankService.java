@@ -1,20 +1,22 @@
 package com.minibank.service;
 
-import com.minibank.db.ConnectionManager;
+import com.minibank.db.JpaUtil;
+import com.minibank.dto.AccountResponse;
+import com.minibank.dto.ClientResponse;
+import com.minibank.dto.ClientWithAccountsResponse;
 import com.minibank.exception.AccountNotFoundException;
 import com.minibank.exception.ClientNotFoundException;
 import com.minibank.exception.InsufficientFundsException;
 import com.minibank.model.Account;
 import com.minibank.model.Client;
+import com.minibank.model.Transaction;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
+import org.hibernate.exception.ConstraintViolationException;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * MiniBank — "MVP", который наспех собрал предыдущий разработчик:
@@ -37,138 +39,108 @@ import java.time.LocalDateTime;
  * раз тот инструмент, который проблему полностью закрывает.
  */
 public class BankService {
-    private static final Connection CONNECTION;
 
-    static {
-        try {
-            CONNECTION = ConnectionManager.getConnection();
-        } catch (SQLException e) {
-            throw new RuntimeException("Не удалось установить соединение с базой данных", e);
+
+    public ClientResponse registerClient(String name, String email) {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
+                Client client = new Client(null, name, email);
+                em.persist(client);
+                tx.commit();
+                return ClientResponse.from(client);
+            } catch (Exception e) {
+                if (tx.isActive()) tx.rollback();
+                if (e instanceof ConstraintViolationException ||
+                        e.getCause() instanceof ConstraintViolationException) {
+                    throw new IllegalStateException("Клиент с email " + email + " уже существует", e);
+                }
+                throw new RuntimeException("Ошибка при регистрации клиента", e);
+            }
         }
     }
 
-    private static final String INSERT_CLIENT_SQL = """
-            INSERT INTO clients (name, email)
-            VALUES (?, ?)
-            """;
-    private static final String INSERT_ACCOUNT_SQL = """
-            INSERT INTO accounts (client_id, account_number, balance)
-            VALUES(?,?,?)
-            """;
-
-    private static final String FIND_ACCOUNT_BY_ID = """
-            SELECT id, client_id, account_number, balance
-            FROM accounts
-            WHERE id = ?
-            """;
-
-    private static final String FIND_CLIENT_BY_ID = """
-            SELECT id, name, email
-            FROM clients
-            WHERE id = ?
-            """;
-    private static final String INSERT_TRANSACTION = """
-            INSERT INTO transactions (account_id, amount, type, transaction_date)
-            VALUES(?,?,?,?)
-            """;
-
-    private static final String UPDATE_ACCOUNT_BALANCE_SQL = """
-        UPDATE accounts
-        SET balance = ?
-        WHERE id = ?
-        """;
-
-    public Client registerClient(String name, String email) {
-        try (PreparedStatement statement = CONNECTION.prepareStatement(INSERT_CLIENT_SQL, Statement.RETURN_GENERATED_KEYS)) {
-
-            statement.setString(1, name);
-            statement.setString(2, email);
-            statement.executeUpdate();
-
-            try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    Long id = generatedKeys.getLong(1);
-                    return new Client(id, name, email);
-                } else {
-                    throw new SQLException("Не удалось создать клиента: ID не получен.");
+    public AccountResponse openAccount(Long clientId, String accountNumber) {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
+                Client client = em.find(Client.class, clientId);
+                if (client == null) {
+                    throw new ClientNotFoundException("Клиент с id=" + clientId + " не найден");
                 }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            if ("23505".equals(e.getSQLState())) {
-                throw new IllegalStateException("Клиент с email " + email + " уже существует", e);
-            }
-
-            throw new RuntimeException("Ошибка при регистрации клиента", e);
-        }
-    }
-
-    public Account openAccount(Long clientId, String accountNumber) {
-        try (PreparedStatement statement = CONNECTION.prepareStatement(INSERT_ACCOUNT_SQL, Statement.RETURN_GENERATED_KEYS)) {
-            statement.setLong(1, clientId);
-            statement.setString(2, accountNumber);
-            statement.setBigDecimal(3, BigDecimal.ZERO);
-            statement.executeUpdate();
-
-            try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    Long id = generatedKeys.getLong("id");
-                    return new Account(id, clientId, accountNumber, BigDecimal.ZERO);
-                } else {
-                    throw new SQLException("Не удалось открыть счёт: ID не получен.");
+                Account account = new Account(null, client, accountNumber, BigDecimal.ZERO);
+                em.persist(account);
+                tx.commit();
+                return AccountResponse.from(account);
+            } catch (ClientNotFoundException e) {
+                if (tx.isActive()) tx.rollback();
+                throw e;
+            }catch (Exception e) {
+                if (tx.isActive()) tx.rollback();
+                if (e instanceof ConstraintViolationException ||
+                        e.getCause() instanceof ConstraintViolationException) {
+                    throw new IllegalStateException("Аккаунт с номером " + accountNumber + " уже существует", e);
                 }
+                throw new RuntimeException("Ошибка при регистрации аккаунта", e);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            if ("23503".equals(e.getSQLState())) {
-                throw new ClientNotFoundException("Клиент с id=" + clientId + " не найден", e);
-            }
-            throw new RuntimeException("Ошибка при открытии счёта", e);
         }
     }
 
     public Account getAccount(Long accountId) {
-        try (PreparedStatement statement = CONNECTION.prepareStatement(FIND_ACCOUNT_BY_ID)) {
-            statement.setLong(1, accountId);
-
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    Long clientId = resultSet.getLong("client_id");
-                    String accountNumber = resultSet.getString("account_number");
-                    BigDecimal balance = resultSet.getBigDecimal("balance");
-
-                    return new Account(accountId, clientId, accountNumber, balance);
-                } else {
-                    throw new AccountNotFoundException("Не удалось найти счёт: ID не найден." + accountId);
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Ошибка БД при поиске счёта с ID " + accountId, e);
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            return em.createQuery(
+                            "select a from Account a join fetch a.client where a.id = :id",
+                            Account.class
+                    )
+                    .setParameter("id", accountId)
+                    .getResultStream()
+                    .findFirst()
+                    .orElseThrow(() -> new AccountNotFoundException("Не удалось найти счёт: ID не найден " + accountId));
         }
     }
 
-    public Client getClient(Long clientId) {
-        try (PreparedStatement statement = CONNECTION.prepareStatement(FIND_CLIENT_BY_ID)) {
-            statement.setLong(1, clientId);
 
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    String name = resultSet.getString("name");
-                    String email = resultSet.getString("email");
-
-                    return new Client(clientId, name, email);
-                } else {
-                    throw new ClientNotFoundException("Не удалось найти клиента: ID не найден " + clientId);
-                }
+    public ClientResponse getClient(Long clientId) {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            Client client = em.find(Client.class, clientId);
+            if (client == null) {
+                throw new ClientNotFoundException("Клиент с id=" + clientId + " не найден");
             }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Ошибка БД при поиске клиента с ID " + clientId, e);
+            return ClientResponse.from(client);
         }
     }
 
+    public ClientWithAccountsResponse getClientWithAccounts(Long id) {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            Client client = em.createQuery(
+                            "select c from Client c left join fetch c.accounts where c.id = :id",
+                            Client.class
+                    )
+                    .setParameter("id", id)
+                    .getResultStream()
+                    .findFirst()
+                    .orElseThrow(() -> new ClientNotFoundException("Клиент не найден"));
+
+            List<AccountResponse> accountDtos = client.getAccounts().stream()
+                    .map(account ->
+                            new AccountResponse(
+                                    account.getId(),
+                                    account.getClient().getId(),
+                                    account.getAccountNumber(),
+                                    account.getBalance()))
+                    .toList();
+
+            return new ClientWithAccountsResponse(
+                    client.getId(),
+                    client.getName(),
+                    accountDtos
+            );
+        }
+    }
+
+    // TODO: пока не атомарно
     public void transfer(Long fromAccountId, Long toAccountId, BigDecimal amount) {
         Account from = getAccount(fromAccountId);
 
@@ -191,24 +163,36 @@ public class BankService {
     }
 
     private void recordTransaction(Long accountId, BigDecimal amount, String type) {
-        try (PreparedStatement statement = CONNECTION.prepareStatement(INSERT_TRANSACTION)) {
-            statement.setLong(1, accountId);
-            statement.setBigDecimal(2, amount);
-            statement.setString(3, type);
-            statement.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
 
-            int rowsInserted = statement.executeUpdate();
-            if (rowsInserted == 0) {
-                throw new RuntimeException("Не удалось записать транзакцию по аккаунту: " + accountId);
+                Account account = em.find(Account.class, accountId);
+                if (account == null) {
+                    throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден");
+                }
+
+                Transaction transaction = new Transaction(
+                        null,
+                        account,
+                        amount,
+                        type,
+                        LocalDateTime.now()
+                );
+                em.persist(transaction);
+
+                tx.commit();
+            } catch (AccountNotFoundException e) {
+                if (tx.isActive()) tx.rollback();
+                throw e;
+            } catch (Exception e) {
+                if (tx.isActive()) tx.rollback();
+                throw new RuntimeException("Ошибка БД при записи транзакции по аккаунту: " + accountId, e);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            if ("23503".equals(e.getSQLState())) {
-                throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден", e);
-            }
-            throw new RuntimeException("Ошибка БД при записи транзакции по аккаунту: " + accountId, e);
         }
     }
+
 
     public void deposit(Long accountId, BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -221,17 +205,79 @@ public class BankService {
     }
 
     private void updateBalance(Long accountId, BigDecimal newBalance) {
-        try (PreparedStatement statement = CONNECTION.prepareStatement(UPDATE_ACCOUNT_BALANCE_SQL)) {
-            statement.setBigDecimal(1, newBalance);
-            statement.setLong(2, accountId);
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
 
-            int updated = statement.executeUpdate();
-            if (updated == 0) {
-                throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден");
+                Account account = em.find(Account.class, accountId);
+                if (account == null) {
+                    throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден");
+                }
+                account.setBalance(newBalance);
+
+                tx.commit();
+            } catch (AccountNotFoundException e) {
+                if (tx.isActive()) tx.rollback();
+                throw e;
+            } catch (Exception e) {
+                if (tx.isActive()) tx.rollback();
+                throw new RuntimeException("Ошибка БД при обновлении баланса счёта " + accountId, e);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Ошибка БД при обновлении баланса счёта " + accountId, e);
+        }
+    }
+
+    public List<ClientResponse> getAllClients() {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            return em.createQuery("SELECT c FROM Client c ORDER BY c.id", Client.class)
+                    .getResultList()
+                    .stream()
+                    .map(ClientResponse::from).toList();
+        }
+    }
+
+    public List<ClientWithAccountsResponse> getAllClientsWithAccounts(){
+        try(EntityManager em = JpaUtil.getEntityManager()){
+            List<Client> clients = em.createQuery(
+                    "select distinct c from Client c left join fetch c.accounts",
+                    Client.class)
+                    .getResultList();
+
+            return clients.stream()
+                    .map(ClientWithAccountsResponse::from).toList();
+        }
+    }
+
+    public void removeAccountFromClient(Long clientId, Long accountId) {
+        try (EntityManager em = JpaUtil.getEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
+
+                Client client = em.createQuery(
+                                "select c from Client c left join fetch c.accounts where c.id = :id",
+                                Client.class
+                        )
+                        .setParameter("id", clientId)
+                        .getResultStream()
+                        .findFirst()
+                        .orElseThrow(() -> new ClientNotFoundException("Client not found"));
+
+                boolean removed = client.getAccounts()
+                        .removeIf(account -> account.getId().equals(accountId));
+
+                if (!removed) {
+                    throw new AccountNotFoundException("Счёт с ID " + accountId + " не найден");
+                }
+
+                tx.commit();
+            } catch (AccountNotFoundException | ClientNotFoundException e) {
+                if (tx.isActive()) tx.rollback();
+                throw e;
+            } catch (Exception e) {
+                if (tx.isActive()) tx.rollback();
+                throw new RuntimeException("Ошибка БД при удалении аккаунта " + accountId, e);
+            }
         }
     }
 }
