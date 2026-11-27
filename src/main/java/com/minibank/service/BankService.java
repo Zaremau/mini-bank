@@ -41,25 +41,7 @@ import java.util.List;
 public class BankService {
 
 
-    public ClientResponse registerClient(String name, String email) {
-        try (EntityManager em = JpaUtil.getEntityManager()) {
-            EntityTransaction tx = em.getTransaction();
-            try {
-                tx.begin();
-                Client client = new Client(null, name, email);
-                em.persist(client);
-                tx.commit();
-                return ClientResponse.from(client);
-            } catch (Exception e) {
-                if (tx.isActive()) tx.rollback();
-                if (e instanceof ConstraintViolationException ||
-                        e.getCause() instanceof ConstraintViolationException) {
-                    throw new IllegalStateException("Клиент с email " + email + " уже существует", e);
-                }
-                throw new RuntimeException("Ошибка при регистрации клиента", e);
-            }
-        }
-    }
+
 
     public AccountResponse openAccount(Long clientId, String accountNumber) {
         try (EntityManager em = JpaUtil.getEntityManager()) {
@@ -98,45 +80,6 @@ public class BankService {
                     .getResultStream()
                     .findFirst()
                     .orElseThrow(() -> new AccountNotFoundException("Не удалось найти счёт: ID не найден " + accountId));
-        }
-    }
-
-
-    public ClientResponse getClient(Long clientId) {
-        try (EntityManager em = JpaUtil.getEntityManager()) {
-            Client client = em.find(Client.class, clientId);
-            if (client == null) {
-                throw new ClientNotFoundException("Клиент с id=" + clientId + " не найден");
-            }
-            return ClientResponse.from(client);
-        }
-    }
-
-    public ClientWithAccountsResponse getClientWithAccounts(Long id) {
-        try (EntityManager em = JpaUtil.getEntityManager()) {
-            Client client = em.createQuery(
-                            "select c from Client c left join fetch c.accounts where c.id = :id",
-                            Client.class
-                    )
-                    .setParameter("id", id)
-                    .getResultStream()
-                    .findFirst()
-                    .orElseThrow(() -> new ClientNotFoundException("Клиент не найден"));
-
-            List<AccountResponse> accountDtos = client.getAccounts().stream()
-                    .map(account ->
-                            new AccountResponse(
-                                    account.getId(),
-                                    account.getClient().getId(),
-                                    account.getAccountNumber(),
-                                    account.getBalance()))
-                    .toList();
-
-            return new ClientWithAccountsResponse(
-                    client.getId(),
-                    client.getName(),
-                    accountDtos
-            );
         }
     }
 
